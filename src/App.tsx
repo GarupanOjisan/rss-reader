@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import type { RSSFeed, RSSItem } from './types';
-import { loadFeeds, saveFeeds, loadArticles, addArticles, saveArticles, logStorageUsage, filterArticlesByDate } from './utils/storage';
+import { loadFeeds, saveFeeds, loadArticles, addArticles, saveArticles, logStorageUsage } from './utils/storage';
 import { fetchMultipleRSSFeeds } from './utils/rss';
 import Header from './components/Header';
 import FeedManager from './components/FeedManager';
 import ArticleList from './components/ArticleList';
 import LoadingSpinner from './components/LoadingSpinner';
-import DateFilter from './components/DateFilter';
 
 function App() {
   const [feeds, setFeeds] = useState<RSSFeed[]>([]);
   const [articles, setArticles] = useState<RSSItem[]>([]);
-  const [filteredArticles, setFilteredArticles] = useState<RSSItem[]>([]);
-  const [excludedDates, setExcludedDates] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFeedManager, setShowFeedManager] = useState(false);
@@ -29,25 +26,7 @@ function App() {
     
     setFeeds(savedFeeds);
     setArticles(savedArticles);
-    
-    // 初期化時に除外日付を設定（DateFilterコンポーネントで読み込まれる）
-    setFilteredArticles(savedArticles);
   }, []);
-
-  // 除外日付が変更された時に記事をフィルタリング
-  useEffect(() => {
-    const filtered = filterArticlesByDate(articles, excludedDates);
-    setFilteredArticles(filtered);
-    
-    if (excludedDates.length > 0) {
-      console.log(`📅 日付フィルター適用: ${excludedDates.length}日を除外、${filtered.length}/${articles.length}件表示`);
-    }
-  }, [articles, excludedDates]);
-
-  // 除外日付の変更を処理
-  const handleExcludedDatesChange = (dates: string[]) => {
-    setExcludedDates(dates);
-  };
 
   // フィードを追加
   const addFeed = async (url: string) => {
@@ -202,13 +181,9 @@ function App() {
         )}
         
         {isLoading && <LoadingSpinner />}
-        
-        <DateFilter 
-          onExcludedDatesChange={handleExcludedDatesChange}
-        />
 
         <ArticleList 
-          articles={filteredArticles}
+          articles={articles}
           onArticleClick={handleArticleClick}
         />
       </main>

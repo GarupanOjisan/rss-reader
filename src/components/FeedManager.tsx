@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { RSSFeed } from '../types';
 import { parseOPML, createFeedsFromOPML, generateOPML } from '../utils/rss';
+import LoadingSpinner from './LoadingSpinner';
 
 interface FeedManagerProps {
   feeds: RSSFeed[];
@@ -19,17 +20,23 @@ const FeedManager: React.FC<FeedManagerProps> = ({
 }) => {
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [addingFeeds, setAddingFeeds] = useState<string[]>([]);
 
   const handleAddFeed = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFeedUrl.trim()) return;
 
+    const feedUrl = newFeedUrl.trim();
     setError(null);
+    setAddingFeeds(prev => [...prev, feedUrl]);
+    
     try {
-      await onAddFeed(newFeedUrl.trim());
+      await onAddFeed(feedUrl);
       setNewFeedUrl('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'フィードの追加に失敗しました');
+    } finally {
+      setAddingFeeds(prev => prev.filter(url => url !== feedUrl));
     }
   };
 
@@ -44,9 +51,14 @@ const FeedManager: React.FC<FeedManagerProps> = ({
         const opmlData = parseOPML(opmlText);
         const newFeeds = createFeedsFromOPML(opmlData);
         
-        // 各フィードを追加
+        // 各フィードを追加（ローディング状態を管理）
         for (const feed of newFeeds) {
-          await onAddFeed(feed.url);
+          setAddingFeeds(prev => [...prev, feed.url]);
+          try {
+            await onAddFeed(feed.url);
+          } finally {
+            setAddingFeeds(prev => prev.filter(url => url !== feed.url));
+          }
         }
       } catch (err) {
         setError('OPMLファイルの読み込みに失敗しました');
@@ -104,13 +116,43 @@ const FeedManager: React.FC<FeedManagerProps> = ({
               />
               <button
                 type="submit"
-                disabled={isLoading || !newFeedUrl.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading || !newFeedUrl.trim() || addingFeeds.includes(newFeedUrl.trim())}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                追加
+                {addingFeeds.includes(newFeedUrl.trim()) ? (
+                  <>
+                    <LoadingSpinner size="sm" showText={false} />
+                    追加中...
+                  </>
+                ) : (
+                  '追加'
+                )}
               </button>
             </form>
           </div>
+
+          {/* 追加中のフィード */}
+          {addingFeeds.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-3">追加中のフィード</h3>
+              <div className="space-y-2">
+                {addingFeeds.map((url) => (
+                  <div
+                    key={url}
+                    className="flex items-center justify-between p-3 border border-blue-200 bg-blue-50 rounded-md"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <LoadingSpinner size="sm" showText={false} />
+                        <span className="text-sm text-gray-600">追加中...</span>
+                      </div>
+                      <p className="text-sm text-gray-500 truncate mt-1">{url}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* OPMLインポート/エクスポート */}
           <div className="mb-6">
@@ -122,15 +164,15 @@ const FeedManager: React.FC<FeedManagerProps> = ({
                   accept=".opml,.xml"
                   onChange={handleOPMLImport}
                   className="hidden"
-                  disabled={isLoading}
+                  disabled={isLoading || addingFeeds.length > 0}
                 />
                 <div className="px-4 py-2 border border-gray-300 rounded-md text-center cursor-pointer hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                  OPMLファイルをインポート
+                  {addingFeeds.length > 0 ? 'インポート中...' : 'OPMLファイルをインポート'}
                 </div>
               </label>
               <button
                 onClick={handleOPMLExport}
-                disabled={feeds.length === 0 || isLoading}
+                disabled={feeds.length === 0 || isLoading || addingFeeds.length > 0}
                 className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 OPMLファイルをエクスポート

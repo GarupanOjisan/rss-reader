@@ -3,81 +3,9 @@ import type { RSSFeed, RSSItem } from '../types';
 const STORAGE_KEYS = {
   FEEDS: 'rss-reader-feeds',
   ARTICLES: 'rss-reader-articles',
-  SETTINGS: 'rss-reader-settings',
 } as const;
 
-// 設定の型定義
-interface AppSettings {
-  excludedDates: string[]; // YYYY-MM-DD形式の日付文字列の配列
-}
 
-// デフォルト設定
-const DEFAULT_SETTINGS: AppSettings = {
-  excludedDates: [],
-};
-
-// 設定の保存・取得
-export const saveSettings = (settings: AppSettings): void => {
-  try {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-  } catch (error) {
-    console.error('設定の保存に失敗しました:', error);
-  }
-};
-
-export const loadSettings = (): AppSettings => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    if (!stored) return DEFAULT_SETTINGS;
-    
-    const settings = JSON.parse(stored);
-    return {
-      ...DEFAULT_SETTINGS,
-      ...settings,
-    };
-  } catch (error) {
-    console.error('設定の読み込みに失敗しました:', error);
-    return DEFAULT_SETTINGS;
-  }
-};
-
-// 日付フィルタリング関数
-export const filterArticlesByDate = (articles: RSSItem[], excludedDates: string[]): RSSItem[] => {
-  if (excludedDates.length === 0) {
-    return articles;
-  }
-  
-  return articles.filter(article => {
-    // 記事の公開日を日本時間で取得
-    const articleJST = new Date(article.pubDate.getTime() + (9 * 60 * 60 * 1000));
-    const articleDateKey = articleJST.toISOString().split('T')[0]; // YYYY-MM-DD形式
-    
-    // 除外日付リストに含まれていない記事のみを返す
-    return !excludedDates.includes(articleDateKey);
-  });
-};
-
-// 除外日付の追加
-export const addExcludedDate = (date: string): void => {
-  const settings = loadSettings();
-  if (!settings.excludedDates.includes(date)) {
-    settings.excludedDates.push(date);
-    saveSettings(settings);
-  }
-};
-
-// 除外日付の削除
-export const removeExcludedDate = (date: string): void => {
-  const settings = loadSettings();
-  settings.excludedDates = settings.excludedDates.filter(d => d !== date);
-  saveSettings(settings);
-};
-
-// 除外日付の一覧を取得
-export const getExcludedDates = (): string[] => {
-  const settings = loadSettings();
-  return settings.excludedDates;
-};
 
 // フィードの保存・取得
 export const saveFeeds = (feeds: RSSFeed[]): void => {
